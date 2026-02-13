@@ -6,11 +6,12 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable;
+    use HasApiTokens, HasFactory, Notifiable;
 
     /**
      * The attributes that are mass assignable.
@@ -20,7 +21,15 @@ class User extends Authenticatable
     protected $fillable = [
         'name',
         'email',
+        'email_verified_at',
+        'phone',
         'password',
+        'role',
+        'verification_token',
+        'token_expires_at',
+        'remember_token',
+        'timezone',
+        'buffer_minutes',
     ];
 
     /**
@@ -31,6 +40,7 @@ class User extends Authenticatable
     protected $hidden = [
         'password',
         'remember_token',
+        'verification_token',
     ];
 
     /**
@@ -43,6 +53,19 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'token_expires_at' => 'datetime',
         ];
+    }
+
+    public function availabilities(){
+        return $this->hasMany(Availability::class);
+    }
+
+    public function bookingSlots(){
+        return $this->hasMany(BookingSlot::class);
+    }
+
+    public function bookings(){
+        return $this->hasMany(Booking::class);
     }
 }
