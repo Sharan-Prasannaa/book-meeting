@@ -15,12 +15,21 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->append(HandleCors::class);
+
+        // Prevent redirect to login route for API
+        $middleware->redirectGuestsTo(fn () => null);
         
         $middleware->alias([
-            'auth:sanctum' => \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
+            // EnsureFrontendRequestsAreStateful not needed as we using Token based authentication, not cookie-based
+            // 'auth:sanctum' => \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class, 
+
             'verified.email' => \App\Http\Middleware\EmailVerifyMiddleware::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
-    })->create();
+        $exceptions->render(function (\Illuminate\Auth\AuthenticationException $e, $request) {
+            return response()->json([
+                'message' => 'Unauthenticated.'
+            ], 401);
+        });
+    });
