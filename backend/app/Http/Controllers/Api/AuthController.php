@@ -139,7 +139,7 @@ class AuthController extends Controller
             $user = User::where('email', strtolower($request->email))->first();
     
             if (!$user || !Hash::check($request->password, $user->password)) {
-                return response()->json(['message' => 'Invalid credentials'], 401);
+                return response()->json(['message' => 'Invalid credentials'], 422);
             }
     
             if (!$user->email_verified_at) {
