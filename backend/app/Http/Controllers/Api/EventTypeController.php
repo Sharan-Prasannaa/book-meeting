@@ -10,7 +10,10 @@ class EventTypeController extends Controller
 {
     public function index(Request $request){
         return response()->json([
-            'event_types' => $request->user()->event_types //Laravel always return empty array
+            'event_types' => $request->user()
+                ->event_types()
+                ->where('is_active', 1)
+                ->get(),
         ]);
     }
 
@@ -33,6 +36,55 @@ class EventTypeController extends Controller
             'message' => 'Event Type created',
             'event_type' => $eventType
         ], 201);
+    }
+
+    //---------- show events of based on User $id refers to event_types id --------
+    public function show(Request $request, $id){ 
+        $eventType = $request->user()
+            ->event_types()
+            ->findOrFail($id);
+
+        return response()->json([
+            'message' => 'show successfully',
+            'event_type' => $eventType,
+        ]);
+    }
+
+    // ----------- Update method ----------------
+    public function update(Request $request, $id){
+        $eventType = $request->user()
+            ->event_types()
+            ->findOrFail($id);
+
+        $request->validate([
+            'title' => 'sometimes|required|string|max:255',
+            'description' => 'nullable|string',
+            'duration' => 'sometimes|required|integer|min:5',
+        ]);
+
+        $eventType->update([
+            'title' => $request->title ?? $eventType->title,
+            'description' => $request->description ?? $eventType->description,
+            'duration' => $request->duration ?? $eventType->duration,
+        ]);
+
+        return response()->json([
+            'message' => 'Event Type updated',
+            'event_type' => $eventType
+        ]);
+    }
+
+    //------------- Delete --------------
+    public function destroy(Request $request, $id){
+        $eventType = $request->user()
+        ->event_types()
+        ->findOrFail($id);
+
+        $eventType->delete();
+
+        return response()->json([
+            'message' => 'Event Type deleted successfully'
+        ]);
     }
 
 }
