@@ -50,15 +50,13 @@ export function AuthProvider({ children }) {
   // Logout function to logout user
   const logout = async () => {
     try {
-      await api.post("/auth/logout", null, {
-        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
-      });
+      await api.post("/auth/logout"); // no manual headers needed as axios handles it
     } catch (err) {
       console.log("Logout error:", err);
     } finally {
       localStorage.removeItem("token");
       setUser(null);
-      navigate("/login"); // optional: redirect to login after logout
+      navigate("/login");
     }
   };
 
