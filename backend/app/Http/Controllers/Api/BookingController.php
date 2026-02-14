@@ -16,47 +16,108 @@ class BookingController extends Controller
         // Validate input
         $request->validate([
             'event_type_id' => 'required|exists:event_types,id',
-            'date' => 'required|date',
+            'date' => 'required|date|after_or_equal:today',
         ]);
 
         $eventTypeId = $request->event_type_id;
         $date = $request->date;
-
-        // Fetch event type to get duration
-        $eventType = EventType::with(['bookings' => function($query) use ($date) {
-            $query->whereDate('start_datetime', $date);
-        }])->findOrFail($eventTypeId);
-        
+    
+        // Fetch event type with host and their availabilities
+        $eventType = EventType::with([
+            'user.availabilities', // Load host's availability rules
+            'bookings' => function($query) use ($date) {
+                $query->whereDate('start_datetime', $date)
+                      ->whereIn('status', ['scheduled', 'completed']); // Only count confirmed/pending bookings
+            }
+        ])->findOrFail($eventTypeId);
+    
+        $host = $eventType->user;
         $bookings = $eventType->bookings;
-        $slotDuration = $eventType->duration; // Use event type's duration
-
-        // Get working hours from constants
-        $startOfDay = Carbon::parse($date . config('constants.working_hours.start'));
-        $endOfDay = Carbon::parse($date . config('constants.working_hours.end'));
-
-        $slots = [];
-        $current = $startOfDay->copy();
-
-        // Check if slot END fits within working hours
-        while ($current->copy()->addMinutes($slotDuration) <= $endOfDay) {
-            $slotStart = $current->copy();
-            $slotEnd = $current->copy()->addMinutes($slotDuration);
+        $slotDuration = $eventType->duration;
     
-            // Check if slot is booked
-            $isBooked = $bookings->contains(function($booking) use ($slotStart, $slotEnd) {
-                return !($slotEnd <= $booking->start_datetime || $slotStart >= $booking->end_datetime);
-            });
+        // Get day of week for the requested date
+        $dayOfWeek = strtolower(Carbon::parse($date)->format('l')); // 'monday', 'tuesday', ...
     
-            $slots[] = [
-                'start' => $slotStart->format('H:i'),
-                'end' => $slotEnd->format('H:i'),
-                'status' => $isBooked ? 'booked' : 'available',
-            ];
+        // Check if date is blocked
+        $isDateBlocked = $host->availabilities()
+            ->where('is_blocked', true)
+            ->where('blocked_date', $date)
+            ->exists();
     
-            $current->addMinutes($slotDuration);
+        if ($isDateBlocked) {
+            return response()->json([
+                'message' => 'This date is not available',
+                'slots' => []
+            ]);
         }
-
-        return response()->json($slots);
+    
+        // Get availability rules for this day of week
+        $availabilities = $host->availabilities()
+            ->where('day_of_week', $dayOfWeek)
+            ->where('is_active', true)
+            ->where('is_blocked', false)
+            ->where(function($query) use ($date) {
+                // Either no blocked_date or blocked_date doesn't match requested date
+                $query->whereNull('blocked_date')
+                      ->orWhere('blocked_date', '!=', $date);
+            })
+            ->orderBy('start_time')
+            ->get();
+    
+        if ($availabilities->isEmpty()) {
+            return response()->json([
+                'message' => 'No availability set for this day',
+                'slots' => []
+            ]);
+        }
+    
+        // Generate slots based on availability windows
+        $slots = [];
+    
+        foreach ($availabilities as $availability) {
+            $windowStart = Carbon::parse($date . ' ' . $availability->start_time);
+            $windowEnd = Carbon::parse($date . ' ' . $availability->end_time);
+            
+            $current = $windowStart->copy();
+    
+            // Generate slots within this availability window
+            while ($current->copy()->addMinutes($slotDuration) <= $windowEnd) {
+                $slotStart = $current->copy();
+                $slotEnd = $current->copy()->addMinutes($slotDuration);
+    
+                // Check if slot overlaps with any existing booking
+                $isBooked = $bookings->contains(function($booking) use ($slotStart, $slotEnd) {
+                    // Slot is booked if there's any overlap
+                    return !($slotEnd <= $booking->start_datetime || $slotStart >= $booking->end_datetime);
+                });
+    
+                $slots[] = [
+                    'start' => $slotStart->format('H:i'),
+                    'end' => $slotEnd->format('H:i'),
+                    'start_datetime' => $slotStart->toIso8601String(),
+                    'end_datetime' => $slotEnd->toIso8601String(),
+                    'status' => $isBooked ? 'booked' : 'available',
+                ];
+    
+                $current->addMinutes($slotDuration);
+            }
+        }
+    
+        // Sort slots by start time (in case multiple availability windows)
+        usort($slots, function($a, $b) {
+            return strcmp($a['start'], $b['start']);
+        });
+    
+        return response()->json([
+            'date' => $date,
+            'day_of_week' => $dayOfWeek,
+            'event_type' => [
+                'id' => $eventType->id,
+                'name' => $eventType->name,
+                'duration' => $eventType->duration
+            ],
+            'slots' => $slots
+        ]);
     }
 
     public function store(Request $request)
@@ -71,14 +132,14 @@ class BookingController extends Controller
         ]);
 
         // Fetch event type to get duration
-        $eventType = EventType::findOrFail($request->event_type_id);
+        $eventType = EventType::with('user')->findOrFail($request->event_type_id);
+        $host = $eventType->user;
 
-        $date = $request->date;
         $startDatetime = Carbon::parse($date . ' ' . $request->start_time);
         $endDatetime = Carbon::parse($date . ' ' . $request->end_time);
+        $date = $startDatetime->format('Y-m-d'); // Extract date for availability check
 
         // Validate duration matches event type
-        // Cast both to integer to avoid type mismatch
         $requestedDuration = (int) $startDatetime->diffInMinutes($endDatetime);
         $eventDuration = (int) $eventType->duration;
 
@@ -89,8 +150,48 @@ class BookingController extends Controller
             ], 422);
         }
 
+        // Check if slot falls within host's availability
+        $dayOfWeek = strtolower($startDatetime->format('l'));
+
+        // Check if date is blocked
+            $isDateBlocked = $host->availabilities()
+            ->where('is_blocked', true)
+            ->where('blocked_date', $date)
+            ->exists();
+
+        if ($isDateBlocked) {
+            return response()->json([
+                'status' => false,
+                'message' => 'This date is not available for booking.'
+            ], 422);
+        }
+
+        // Check if requested time falls within any availability window
+        $startTime = $startDatetime->format('H:i');
+        $endTime = $endDatetime->format('H:i');
+
+        $hasAvailability = $host->availabilities()
+            ->where('day_of_week', $dayOfWeek)
+            ->where('is_active', true)
+            ->where('is_blocked', false)
+            ->where(function($query) use ($date) {
+                $query->whereNull('blocked_date')
+                    ->orWhere('blocked_date', '!=', $date);
+            })
+            ->where('start_time', '<=', $startTime)
+            ->where('end_time', '>=', $endTime)
+            ->exists();
+        
+        if (!$hasAvailability) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Selected time slot is outside available hours.'
+            ], 422);
+        }
+
         // Check for overlapping booking using relationship
         $conflict = $eventType->bookings()
+            ->whereIn('status', ['scheduled', 'completed'])
             ->where(function($query) use ($startDatetime, $endDatetime) {
                 $query->whereBetween('start_datetime', [$startDatetime, $endDatetime])
                     ->orWhereBetween('end_datetime', [$startDatetime, $endDatetime])
@@ -117,6 +218,7 @@ class BookingController extends Controller
             'guest_phone' => $request->guest_phone,
             'start_datetime' => $startDatetime,
             'end_datetime' => $endDatetime,
+            'status' => 'scheduled',
         ]);
 
         return response()->json([
