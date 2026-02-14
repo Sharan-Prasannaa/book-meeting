@@ -32,4 +32,4 @@ return Application::configure(basePath: dirname(__DIR__))
                 'message' => 'Unauthenticated.'
             ], 401);
         });
-    });
+    })->create();
