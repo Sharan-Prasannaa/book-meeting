@@ -4,4 +4,4 @@
 
 <a href="{{ $link ?? '#' }}">Verify Email</a>
 
-<p>This link expires in 2 hours.</p>
+<p>This link expires in 1 hours.</p>

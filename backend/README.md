@@ -12,6 +12,17 @@ cp .env.example .env
 php artisan key:generate
 php artisan migrate
 php artisan serve
+
+# Mail configuration (for email verification)
+
+```
+
+### Laravel Sanctum (auth)
+
+```bash
+composer require laravel/sanctum
+php artisan vendor:publish --provider="Laravel\Sanctum\SanctumServiceProvider"
+php artisan migrate
 ```
 
 - Default: `http://localhost:8000`

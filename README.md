@@ -9,6 +9,7 @@ A mini appointment-scheduling app inspired by Calendly. **PHP (Laravel)** backen
 - **Data model designed** and migrations created.
 - **Migration order fixed** so `bookings` is created before `booking_slots` (FK dependency).
 - **Double-booking** enforced in **backend validation logic** (no DB unique constraint).
+- **Auth backend in place**: Laravel Sanctum installed; signup, login, and email-verification endpoints implemented.
 - **(Optional)** DB-level unique on `(user_id, date, start_time)` can be added later for extra safety.
 
 ---
@@ -32,7 +33,10 @@ php artisan serve
 
 ### Frontend (React)
 
-*(To be added as the app is built.)*
+Planned **React SPA** in `frontend/` that will:
+
+- Implement the **admin auth flow** (signup → email verify prompt → login) against the existing Laravel API.
+- Later, add **admin dashboard** (availability/event types, bookings) and **public booking UI** (date picker, slots, booking form).
 
 ---
 

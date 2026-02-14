@@ -7,6 +7,9 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
+use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Hash;
+
 
 class User extends Authenticatable
 {
@@ -41,6 +44,7 @@ class User extends Authenticatable
         'password',
         'remember_token',
         'verification_token',
+        'token_expires_at',
     ];
 
     /**
@@ -67,5 +71,18 @@ class User extends Authenticatable
 
     public function bookings(){
         return $this->hasMany(Booking::class);
+    }
+
+    // Common function to Generates raw token, hash it, Set expiry, Save to database
+    public function generateVerificationToken()
+    {
+        $rawToken = Str::random(64);
+
+        $this->verification_token = hash('sha256', $rawToken);
+        $this->token_expires_at = now()->addMinutes(60);
+
+        $this->save();
+
+        return $rawToken; // return raw token for email
     }
 }
