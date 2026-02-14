@@ -11,7 +11,7 @@ class EventTypeController extends Controller
     public function index(Request $request){
         return response()->json([
             'event_types' => $request->user()
-                ->event_types()
+                ->eventType()
                 ->where('is_active', 1)
                 ->get(),
         ]);
@@ -25,7 +25,7 @@ class EventTypeController extends Controller
             'duration' => 'required|integer|min:5',
         ]);
 
-        $eventType = $request->user()->event_types()->create([
+        $eventType = $request->user()->eventType()->create([
             'title' => $request->title,
             'description' => $request->description,
             'duration' => $request->duration,
@@ -41,7 +41,7 @@ class EventTypeController extends Controller
     //---------- show events of based on User $id refers to event_types id --------
     public function show(Request $request, $id){ 
         $eventType = $request->user()
-            ->event_types()
+            ->eventType()
             ->findOrFail($id);
 
         return response()->json([
@@ -53,7 +53,7 @@ class EventTypeController extends Controller
     // ----------- Update method ----------------
     public function update(Request $request, $id){
         $eventType = $request->user()
-            ->event_types()
+            ->eventType()
             ->findOrFail($id);
 
         $request->validate([
@@ -77,7 +77,7 @@ class EventTypeController extends Controller
     //------------- Delete --------------
     public function destroy(Request $request, $id){
         $eventType = $request->user()
-        ->event_types()
+        ->eventType()
         ->findOrFail($id);
 
         $eventType->delete();

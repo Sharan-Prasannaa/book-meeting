@@ -48,7 +48,12 @@ class AuthController extends Controller
 
             return response()->json([
                 'message'=>'User registered. Please verify Email',
-                'user' => $user
+                'user' => [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'role' => $user->role
+                ]
             ], 201);
         } catch (Throwable $e){
             if (config('app.debug')) {
@@ -77,7 +82,6 @@ class AuthController extends Controller
         ]);
 
         $hashedToken = hash('sha256', trim($request->token));
-
         $user = User::where('verification_token', $hashedToken)->first();
         
         if(!($user)){
