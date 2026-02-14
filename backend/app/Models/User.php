@@ -7,6 +7,10 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
+use App\Models\EventType;
+use App\Models\Availability;
+use App\Models\Booking;
+use App\Models\BookingSlot;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Hash;
 
@@ -59,6 +63,11 @@ class User extends Authenticatable
             'password' => 'hashed',
             'token_expires_at' => 'datetime',
         ];
+    }
+
+    public function event_types()
+    {
+        return $this->hasMany(EventType::class);
     }
 
     public function availabilities(){

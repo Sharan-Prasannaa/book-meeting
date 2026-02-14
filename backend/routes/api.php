@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\EventTypeController;
 
 // routes allow signup, login, email verification, and password reset
 // No middleware required as their are public routes
@@ -23,8 +24,7 @@ Route::middleware(['auth:sanctum', 'verified.email'])->group(function() {
     Route::get('/auth/profile', [AuthController::class,'profile']);
 
     // Event Types
-    Route::post('/event-types', [EventTypeController::class, 'store']);
-    Route::get('/event-types', [EventTypeController::class, 'index']);
+    Route::apiResource('event-types', EventTypeController::class);
     
 });
 
