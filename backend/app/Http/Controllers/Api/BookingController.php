@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 
 class BookingController extends Controller
 {
+    // Funtion to fetch available slots based on event and date
     public function availableSlots(Request $request)
     {
         // Validate input
@@ -69,77 +70,146 @@ class BookingController extends Controller
             'end_time' => 'required',
         ]);
 
-        try{
-            // Fetch event type to get duration
-            $eventType = EventType::findOrFail($request->event_type_id);
+        // Fetch event type to get duration
+        $eventType = EventType::findOrFail($request->event_type_id);
 
-            $date = $request->date;
-            $startDatetime = Carbon::parse($date . ' ' . $request->start_time);
-            $endDatetime = Carbon::parse($date . ' ' . $request->end_time);
+        $date = $request->date;
+        $startDatetime = Carbon::parse($date . ' ' . $request->start_time);
+        $endDatetime = Carbon::parse($date . ' ' . $request->end_time);
 
-            // Validate duration matches event type
-            // Cast both to integer to avoid type mismatch
-            $requestedDuration = (int) $startDatetime->diffInMinutes($endDatetime);
-            $eventDuration = (int) $eventType->duration;
+        // Validate duration matches event type
+        // Cast both to integer to avoid type mismatch
+        $requestedDuration = (int) $startDatetime->diffInMinutes($endDatetime);
+        $eventDuration = (int) $eventType->duration;
 
-            if ($requestedDuration !== $eventType->duration) {
-                return response()->json([
-                    'status' => false,
-                    'message' => "Booking duration must be {$eventType->duration} minutes."
-                ], 422);
-            }
-
-            // Check for overlapping booking using relationship
-            $conflict = $eventType->bookings()
-                ->where(function($query) use ($startDatetime, $endDatetime) {
-                    $query->whereBetween('start_datetime', [$startDatetime, $endDatetime])
-                        ->orWhereBetween('end_datetime', [$startDatetime, $endDatetime])
-                        ->orWhere(function($q) use ($startDatetime, $endDatetime) {
-                            $q->where('start_datetime', '<=', $startDatetime)
-                                ->where('end_datetime', '>=', $endDatetime);
-                        });
-                })
-                ->exists();
-
-            if ($conflict) {
-                return response()->json([
-                    'status' => false,
-                    'message' => 'Selected slot is already booked.'
-                ], 409);
-            }
-
-            // Save booking if not conflict
-            $booking = Booking::create([
-                'event_type_id' => $eventType->id,
-                'user_id' => $eventType->user_id,
-                'guest_name' => $request->guest_name,
-                'guest_email' => $request->guest_email,
-                'guest_phone' => $request->guest_phone,
-                'start_datetime' => $startDatetime,
-                'end_datetime' => $endDatetime,
-            ]);
-
+        if ($requestedDuration !== $eventType->duration) {
             return response()->json([
-                'status' => true,
-                'message' => 'Booking confirmed!',
-                'booking' => $booking
-            ]);
-        } catch (Throwable $e) {
-            if (config('app.debug')) {
-                return response()->json([
-                    'error' => 'Unable to create booking',
-                    'message' => $e->getMessage(),
-                    'file' => $e->getFile(),
-                    'line' => $e->getLine(),
-                    'trace' => $e->getTrace(),
-                ], 500);
-            }
-            
-            return response()->json([
-                'error' => "Booking not created",
-                'message' => $e->getMessage(),
-            ],500);
+                'status' => false,
+                'message' => "Booking duration must be {$eventType->duration} minutes."
+            ], 422);
         }
+
+        // Check for overlapping booking using relationship
+        $conflict = $eventType->bookings()
+            ->where(function($query) use ($startDatetime, $endDatetime) {
+                $query->whereBetween('start_datetime', [$startDatetime, $endDatetime])
+                    ->orWhereBetween('end_datetime', [$startDatetime, $endDatetime])
+                    ->orWhere(function($q) use ($startDatetime, $endDatetime) {
+                        $q->where('start_datetime', '<=', $startDatetime)
+                            ->where('end_datetime', '>=', $endDatetime);
+                    });
+            })
+            ->exists();
+
+        if ($conflict) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Selected slot is already booked.'
+            ], 409);
+        }
+
+        // Save booking if not conflict
+        $booking = Booking::create([
+            'event_type_id' => $eventType->id,
+            'user_id' => $eventType->user_id,
+            'guest_name' => $request->guest_name,
+            'guest_email' => $request->guest_email,
+            'guest_phone' => $request->guest_phone,
+            'start_datetime' => $startDatetime,
+            'end_datetime' => $endDatetime,
+        ]);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Booking confirmed!',
+            'booking' => $booking
+        ]);
+    }
+
+    //Get all bookings for authenticated user (host)
+    public function index()
+    {
+        if (!auth()->id()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'User not authenticated'
+            ], 401);
+        }
+
+        $bookings = Booking::where('user_id', auth()->id())
+            ->with('eventType')
+            ->orderBy('start_datetime', 'desc')
+            ->get();
+
+        return response()->json([
+            'status' => true,
+            'bookings' => $bookings
+        ]);
+    }
+
+    //Cancel a booking (host only)
+    public function destroy($id)
+    {
+        $booking = Booking::findOrFail($id);
+        
+        // Ensure only the host can cancel
+        if ($booking->user_id !== auth()->id()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Unauthorized to cancel this booking.'
+            ], 403);
+        }
+
+        $booking->delete();
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Booking cancelled successfully!'
+        ]);
+    }
+
+    //Update guest details
+    public function updateGuestInfo(Request $request, $id)
+    {
+        // All fields are optional, but at least ONE must be provided
+        $request->validate([
+            'guest_name' => 'sometimes|required|string|max:255',    // optional, but if present must be valid
+            'guest_email' => 'sometimes|required|email|max:255',
+            'guest_phone' => 'nullable|string|max:20',
+        ]);
+    
+        $booking = Booking::findOrFail($id);
+    
+        // Build update array with only provided fields
+        $updateData = [];
+        
+        if ($request->has('guest_name')) {
+            $updateData['guest_name'] = $request->guest_name;
+        }
+        
+        if ($request->has('guest_email')) {
+            $updateData['guest_email'] = $request->guest_email;
+        }
+        
+        if ($request->has('guest_phone')) {
+            $updateData['guest_phone'] = $request->guest_phone;
+        }
+    
+        // Check if at least one field is being updated
+        if (empty($updateData)) {
+            return response()->json([
+                'status' => false,
+                'message' => 'No fields provided for update.'
+            ], 422);
+        }
+    
+        $booking->update($updateData);
+    
+        return response()->json([
+            'status' => true,
+            'message' => 'Guest information updated successfully!',
+            'booking' => $booking->fresh() // Reload to get updated data
+        ]);
     }
 
 }

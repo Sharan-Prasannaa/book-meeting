@@ -12,8 +12,18 @@ Route::post('/auth/login', [AuthController::class,'login']);
 Route::post('/auth/verify-email', [AuthController::class,'verifyEmail']);
 
 // Bookings
-Route::get('bookings/available-slots', [BookingController::class, 'availableSlots']);
-Route::post('bookings', [BookingController::class, 'store']);
+Route::prefix('bookings')->group(function () {
+    // Public routes
+    Route::get('available-slots', [BookingController::class, 'availableSlots']);
+    Route::post('/', [BookingController::class, 'store']);
+    
+    // Protected routes (host only)
+    Route::middleware('auth:sanctum')->group(function () {
+        Route::get('/', [BookingController::class, 'index']);
+        Route::put('{id}/guest-info', [BookingController::class, 'updateGuestInfo']);
+        Route::delete('{id}', [BookingController::class, 'destroy']);
+    });
+});
 
 // Resend Email Verification (MAX 3 request per minute)
 Route::post('/auth/resend-verification', [AuthController::class, 'resendVerification'])
