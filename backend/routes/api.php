@@ -3,12 +3,17 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\EventTypeController;
+use App\Http\Controllers\Api\BookingController;
 
 // routes allow signup, login, email verification, and password reset
 // No middleware required as their are public routes
 Route::post('/auth/signup', [AuthController::class,'signup']);
 Route::post('/auth/login', [AuthController::class,'login']);
 Route::post('/auth/verify-email', [AuthController::class,'verifyEmail']);
+
+// Bookings
+Route::get('bookings/available-slots', [BookingController::class, 'availableSlots']);
+Route::post('bookings', [BookingController::class, 'store']);
 
 // Resend Email Verification (MAX 3 request per minute)
 Route::post('/auth/resend-verification', [AuthController::class, 'resendVerification'])
