@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Plus, Trash2, Calendar as CalendarIcon } from "lucide-react";
+import { Home, Plus, Trash2, ChevronRight } from "lucide-react";
 import api from "../api/axios";
 
 const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
@@ -73,20 +73,34 @@ export default function Availability() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-orange-100 to-orange-200">
-      <header className="bg-white/80 backdrop-blur-sm shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center gap-4">
-          <button onClick={() => navigate('/dashboard')} className="text-gray-600 hover:text-orange-600">
-            <ArrowLeft size={24} />
+      <header className="bg-white/80 backdrop-blur-sm shadow-sm sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+          <button 
+            onClick={() => navigate('/dashboard')}
+            className="flex items-center gap-2 text-2xl font-bold text-orange-600 hover:text-orange-500 transition"
+          >
+            <Home size={24} />
+            <span>Book<span className="text-orange-400">Ease</span></span>
           </button>
-          <h1 className="text-2xl font-bold text-orange-600">Availability</h1>
         </div>
       </header>
 
       <div className="max-w-4xl mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        {/* Breadcrumb */}
+        <div className="flex items-center gap-2 text-sm text-gray-600 mb-6">
+          <button onClick={() => navigate('/dashboard')} className="hover:text-orange-600 transition">
+            <Home size={16} />
+          </button>
+          <ChevronRight size={16} />
+          <span className="text-orange-600 font-medium">Availability</span>
+        </div>
+
+        <h1 className="text-3xl font-bold text-gray-800 mb-8">Availability</h1>
+
+        <div className="flex gap-4 mb-6">
           <button
             onClick={() => setShowForm(!showForm)}
-            className="flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-full shadow-md hover:shadow-lg transition"
+            className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-full shadow-md hover:shadow-lg transition"
           >
             <Plus size={20} />
             Add Availability Hours
