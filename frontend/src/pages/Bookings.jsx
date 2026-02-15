@@ -1,12 +1,12 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Calendar, Clock, Mail, Phone, User, Trash2 } from "lucide-react";
+import { Home, Calendar, Clock, Mail, Phone, User, Trash2, ChevronRight } from "lucide-react";
 import api from "../api/axios";
 
 export default function Bookings() {
   const navigate = useNavigate();
   const [bookings, setBookings] = useState([]);
-  const [filter, setFilter] = useState('upcoming'); // 'upcoming', 'past', 'all'
+  const [filter, setFilter] = useState('upcoming');
 
   useEffect(() => {
     loadBookings();
@@ -41,16 +41,30 @@ export default function Bookings() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-orange-100 to-orange-200">
-      <header className="bg-white/80 backdrop-blur-sm shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center gap-4">
-          <button onClick={() => navigate('/dashboard')} className="text-gray-600 hover:text-orange-600">
-            <ArrowLeft size={24} />
+      <header className="bg-white/80 backdrop-blur-sm shadow-sm sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+          <button 
+            onClick={() => navigate('/dashboard')}
+            className="flex items-center gap-2 text-2xl font-bold text-orange-600 hover:text-orange-500 transition"
+          >
+            <Home size={24} />
+            <span>Book<span className="text-orange-400">Ease</span></span>
           </button>
-          <h1 className="text-2xl font-bold text-orange-600">Bookings</h1>
         </div>
       </header>
 
       <div className="max-w-6xl mx-auto px-4 py-8">
+        {/* Breadcrumb */}
+        <div className="flex items-center gap-2 text-sm text-gray-600 mb-6">
+          <button onClick={() => navigate('/dashboard')} className="hover:text-orange-600 transition">
+            <Home size={16} />
+          </button>
+          <ChevronRight size={16} />
+          <span className="text-orange-600 font-medium">Bookings</span>
+        </div>
+
+        <h1 className="text-3xl font-bold text-gray-800 mb-8">Bookings</h1>
+
         <div className="flex gap-3 mb-6">
           <button
             onClick={() => setFilter('upcoming')}
