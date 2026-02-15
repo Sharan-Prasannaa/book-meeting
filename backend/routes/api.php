@@ -20,7 +20,7 @@ Route::post('/auth/forgot-password', [AuthController::class,'forgotPassword']);
 Route::post('/auth/reset-password', [AuthController::class,'resetPassword']);
 
 //------------------------ Protected Routes ----------------------
-Route::middleware(['auth:sanctum'])->group(function() {
+Route::middleware(['auth:sanctum', 'verified.email'])->group(function() {
     Route::post('/auth/logout', [AuthController::class,'logout']);
     Route::get('/auth/profile', [AuthController::class,'profile']);
 
