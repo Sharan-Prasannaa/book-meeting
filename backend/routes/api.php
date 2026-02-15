@@ -52,9 +52,9 @@ Route::middleware(['auth:sanctum', 'verified.email'])->group(function() {
 Route::get('/{user_slug}/{event_slug}/available-slots', [BookingController::class, 'availableSlots']);
 Route::post('/{user_slug}/{event_slug}/book', [BookingController::class, 'store']);
 
-// Then event details
-Route::get('/{user_slug}/{event_slug}', [PublicController::class, 'eventTypeBySlug']);
-
 // Then host pages
 Route::get('/{user_slug}/event-types', [PublicController::class, 'hostEventTypes']);
 Route::get('/{user_slug}/info', [PublicController::class, 'hostInfo']);
+
+// Then event details
+Route::get('/{user_slug}/{event_slug}', [PublicController::class, 'eventTypeBySlug']);
