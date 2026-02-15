@@ -27,7 +27,7 @@ class PublicController extends Controller
             ], 404);
         }
 
-        $eventTypes = $user->eventTypes()
+        $eventTypes = $user->eventType()
             ->where('is_active', true)
             ->orderBy('created_at', 'desc')
             ->get()
@@ -74,7 +74,7 @@ class PublicController extends Controller
         }
 
         // Find event type by slug for this user
-        $eventType = $user->eventTypes()
+        $eventType = $user->eventType()
             ->where('slug', $eventSlug)
             ->where('is_active', true)
             ->firstOrFail();
@@ -114,7 +114,7 @@ class PublicController extends Controller
             ->where('role', 'host')
             ->firstOrFail();
 
-        $eventTypesCount = $user->eventTypes()
+        $eventTypesCount = $user->eventType()
             ->where('is_active', true)
             ->count();
 
