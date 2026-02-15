@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { Plus, Edit2, Trash2, ArrowLeft, Clock } from "lucide-react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { Plus, Edit2, Trash2, Home, Clock, ChevronRight } from "lucide-react";
 import api from "../api/axios";
 
 export default function Events() {
@@ -8,10 +8,12 @@ export default function Events() {
   const [events, setEvents] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [editingEvent, setEditingEvent] = useState(null);
+  const [searchParams] = useSearchParams();
   const [formData, setFormData] = useState({
     title: "",
     description: "",
-    duration: 30
+    duration: 30,
+    is_active: true
   });
 
   useEffect(() => {
@@ -21,7 +23,16 @@ export default function Events() {
   const loadEvents = async () => {
     try {
       const res = await api.get('/event-types');
-      setEvents(res.data.event_types || []);
+      const eventList = res.data.event_types || [];
+      setEvents(eventList);
+
+      const editId = searchParams.get("edit");
+      if (editId) {
+        const eventToEdit = eventList.find(e => e.id == editId);
+        if (eventToEdit) {
+          startEdit(eventToEdit);
+        }
+      }
     } catch (error) {
       console.error('Failed to load events:', error);
     }
@@ -35,7 +46,10 @@ export default function Events() {
       } else {
         await api.post('/event-types', formData);
       }
-      loadEvents();
+     
+      // Clear edit param from URL
+      navigate('/events');
+      await loadEvents();
       resetForm();
     } catch (error) {
       alert(error.response?.data?.message || 'Failed to save event');
@@ -53,7 +67,7 @@ export default function Events() {
   };
 
   const resetForm = () => {
-    setFormData({ title: "", description: "", duration: 30 });
+    setFormData({ title: "", description: "", duration: 30, is_active: true });
     setEditingEvent(null);
     setShowForm(false);
   };
@@ -62,7 +76,8 @@ export default function Events() {
     setFormData({
       title: event.title,
       description: event.description || "",
-      duration: event.duration
+      duration: event.duration,
+      is_active: event.is_active
     });
     setEditingEvent(event);
     setShowForm(true);
@@ -70,16 +85,30 @@ export default function Events() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-orange-100 to-orange-200">
-      <header className="bg-white/80 backdrop-blur-sm shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center gap-4">
-          <button onClick={() => navigate('/dashboard')} className="text-gray-600 hover:text-orange-600">
-            <ArrowLeft size={24} />
+      <header className="bg-white/80 backdrop-blur-sm shadow-sm sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+          <button 
+            onClick={() => navigate('/dashboard')}
+            className="flex items-center gap-2 text-2xl font-bold text-orange-600 hover:text-orange-500 transition"
+          >
+            <Home size={24} />
+            <span>Book<span className="text-orange-400">Ease</span></span>
           </button>
-          <h1 className="text-2xl font-bold text-orange-600">Event Types</h1>
         </div>
       </header>
 
       <div className="max-w-4xl mx-auto px-4 py-8">
+        {/* Breadcrumb */}
+        <div className="flex items-center gap-2 text-sm text-gray-600 mb-6">
+          <button onClick={() => navigate('/dashboard')} className="hover:text-orange-600 transition">
+            <Home size={16} />
+          </button>
+          <ChevronRight size={16} />
+          <span className="text-orange-600 font-medium">Event Types</span>
+        </div>
+
+        <h1 className="text-3xl font-bold text-gray-800 mb-8">Event Types</h1>
+
         {!showForm ? (
           <>
             <button
@@ -167,11 +196,37 @@ export default function Events() {
                   type="number"
                   required
                   min="5"
-                  step="5"
+                //   step="5"
                   value={formData.duration}
                   onChange={(e) => setFormData({ ...formData, duration: parseInt(e.target.value) })}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                 />
+              </div>
+              <div className="flex items-center justify-between bg-gray-50 p-4 rounded-lg">
+                <div>
+                    <label className="text-sm font-medium text-gray-700">
+                    Active Status
+                    </label>
+                    <p className="text-xs text-gray-500">
+                    Inactive events won't appear on your public booking page.
+                    </p>
+                </div>
+
+                <button
+                    type="button"
+                    onClick={() =>
+                    setFormData({ ...formData, is_active: !formData.is_active })
+                    }
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition ${
+                    formData.is_active ? "bg-orange-500" : "bg-gray-300"
+                    }`}
+                >
+                    <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition ${
+                        formData.is_active ? "translate-x-6" : "translate-x-1"
+                    }`}
+                    />
+                </button>
               </div>
 
               <div className="flex gap-3">
