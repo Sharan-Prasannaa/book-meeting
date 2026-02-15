@@ -2,9 +2,9 @@ import { useContext } from "react";
 import { Navigate } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 
-export default function PublicRoute({ children }) {
+export default function PublicRoute({ children, redirectTo = "/dashboard" }) {
   const { user, loading } = useContext(AuthContext);
 
   if (loading) return null; // show spinner if needed
-  return !user ? children : <Navigate to="/profile" replace />;
+  return !user ? children : <Navigate to={redirectTo} replace />;
 }
