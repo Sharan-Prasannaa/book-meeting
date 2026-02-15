@@ -93,6 +93,10 @@ class BookingController extends Controller
     
         // Generate slots based on availability windows
         $slots = [];
+
+        // Remove past slots
+        $now = Carbon::now();
+        $isToday = Carbon::parse($date)->isToday();
     
         foreach ($availabilities as $availability) {
             $windowStart = Carbon::parse($date . ' ' . $availability->start_time);
@@ -104,6 +108,12 @@ class BookingController extends Controller
             while ($current->copy()->addMinutes($slotDuration) <= $windowEnd) {
                 $slotStart = $current->copy();
                 $slotEnd = $current->copy()->addMinutes($slotDuration);
+
+                // Skip past time slots if selected date is today
+                if ($isToday && $slotStart->lessThanOrEqualTo($now)) {
+                    $current->addMinutes($slotDuration);
+                    continue;
+                }
     
                 // Check if slot overlaps with any existing booking
                 $isBooked = $bookings->contains(function($booking) use ($slotStart, $slotEnd) {
