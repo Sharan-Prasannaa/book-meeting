@@ -12,7 +12,7 @@ class EventTypeController extends Controller
         return response()->json([
             'event_types' => $request->user()
                 ->eventType()
-                ->where('is_active', 1)
+                ->latest()
                 ->get(),
         ]);
     }
@@ -23,6 +23,7 @@ class EventTypeController extends Controller
             'title' => 'required|string|max:255',
             'description' => 'nullable|string',
             'duration' => 'required|integer|min:5',
+            'is_active' => 'sometimes|boolean',
         ]);
 
         $eventType = $request->user()->eventType()->create([
@@ -30,6 +31,9 @@ class EventTypeController extends Controller
             'description' => $request->description,
             'duration' => $request->duration,
             'slug' => Str::slug($request->title) . '-' . Str::random(6),
+            'is_active' => $request->has('is_active') 
+                ? $request->boolean('is_active') 
+                : true,
         ]);
 
         return response()->json([
@@ -60,12 +64,16 @@ class EventTypeController extends Controller
             'title' => 'sometimes|required|string|max:255',
             'description' => 'nullable|string',
             'duration' => 'sometimes|required|integer|min:5',
+            'is_active' => 'sometimes|boolean',
         ]);
 
         $eventType->update([
             'title' => $request->title ?? $eventType->title,
             'description' => $request->description ?? $eventType->description,
             'duration' => $request->duration ?? $eventType->duration,
+            'is_active' => $request->has('is_active') 
+                ? $request->boolean('is_active') 
+                : true,
         ]);
 
         return response()->json([
@@ -77,8 +85,8 @@ class EventTypeController extends Controller
     //------------- Delete --------------
     public function destroy(Request $request, $id){
         $eventType = $request->user()
-        ->eventType()
-        ->findOrFail($id);
+            ->eventType()
+            ->findOrFail($id);
 
         $eventType->delete();
 
