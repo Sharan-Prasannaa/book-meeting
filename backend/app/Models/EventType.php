@@ -2,13 +2,14 @@
 
 namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use App\Models\User;
 use App\Models\Bookings;
 
 class EventType extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     protected $fillable = [
         'user_id',
@@ -17,6 +18,11 @@ class EventType extends Model
         'duration',
         'slug',
         'is_active',
+    ];
+
+    protected $casts = [
+        'is_active' => 'boolean',
+        'duration' => 'integer',
     ];
     
     public function user()
@@ -27,5 +33,17 @@ class EventType extends Model
     public function bookings()
     {
         return $this->hasMany(\App\Models\Booking::class);
+    }
+
+    // Cascade for soft delete
+    protected static function booted()
+    {
+        static::deleting(function ($eventType) {
+            if ($eventType->isForceDeleting()) {
+                $eventType->bookings()->forceDelete();
+            } else {
+                $eventType->bookings()->delete();
+            }
+        });
     }
 }
