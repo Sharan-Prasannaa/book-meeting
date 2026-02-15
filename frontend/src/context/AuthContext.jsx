@@ -13,13 +13,18 @@ export function AuthProvider({ children }) {
     const fetchProfile = async () => {
       try {
         const token = localStorage.getItem("token");
-        if (!token) return setLoading(false);
+        if (!token) {
+          setUser(null);
+          setLoading(false);
+          return;
+        }
   
         const res = await api.get("/auth/profile", {
           headers: { Authorization: `Bearer ${token}` }
         });
         setUser(res.data.user);
       } catch (err) {
+        localStorage.removeItem("token"); // If "/auth/profile" fails, clear token
         setUser(null);
       } finally {
         setLoading(false);
@@ -44,7 +49,21 @@ export function AuthProvider({ children }) {
 
   // Signup function to register new user
   const signup = async (data) => {
-    return await api.post("/auth/signup", data);
+    try {
+      const res = await api.post("/auth/signup", data);
+      return res.data;
+    } catch (err) {
+      if (err.response) {
+        // Laravel validation error or other HTTP error
+        if (err.response.status === 422 && err.response.data.errors) {
+          throw err.response.data.errors; // field-specific errors
+        }
+        throw { general: [err.response.data.message || "Something went wrong"] };
+      } else {
+        // Network error (backend not reachable)
+        throw { general: ["Cannot connect to server. Please try again later."] };
+      }
+    }
   };
 
   // Logout function to logout user
