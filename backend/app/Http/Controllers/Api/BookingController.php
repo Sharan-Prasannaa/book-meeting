@@ -110,7 +110,7 @@ class BookingController extends Controller
                 $slotEnd = $current->copy()->addMinutes($slotDuration);
 
                 // Skip past time slots if selected date is today
-                if ($isToday && $slotStart->lessThanOrEqualTo($now)) {
+                if ($isToday && $slotStart->lessThan($now->addMinutes(5))) {
                     $current->addMinutes($slotDuration);
                     continue;
                 }
@@ -291,10 +291,25 @@ class BookingController extends Controller
             ], 401);
         }
 
+        $now = Carbon::now();
+
+        // Need to done from scheduler/jobs
+        Booking::where('status', 'scheduled')
+            ->where('end_datetime', '<', $now)
+            ->update(['status' => 'completed']);
+
         $bookings = Booking::where('user_id', auth()->id())
             ->with('eventType')
-            ->orderBy('start_datetime', 'desc')
-            ->get();
+            ->orderBy('start_datetime', 'asc')
+            ->get()
+            ->map(function ($booking) use ($now) {
+                // If meeting ended and still scheduled mark as completed (virtual)
+                if ($booking->status === 'scheduled' && $booking->end_datetime < $now) {
+                    $booking->status = 'completed';
+                }
+        
+                return $booking;
+            });
 
         return response()->json([
             'status' => true,
