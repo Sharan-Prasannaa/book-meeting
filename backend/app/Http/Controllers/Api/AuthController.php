@@ -28,8 +28,13 @@ class AuthController extends Controller
 
         try{
             $rawToken = Str::random(64);
+
+            // Generate unique user_slug from name
+            $userSlug = User::generateUniqueSlug($request->name);
+
             $user = User::create([
                 'name' => $request->name,
+                'user_slug' => $userSlug,
                 'email' => strtolower($request->email),
                 'password' => Hash::make($request->password),
                 'role' => $request->role ?? 'guest',
@@ -51,8 +56,10 @@ class AuthController extends Controller
                 'user' => [
                     'id' => $user->id,
                     'name' => $user->name,
+                    'user_slug' => $user->user_slug,
                     'email' => $user->email,
-                    'role' => $user->role
+                    'role' => $user->role,
+                    'booking_url' => config('app.frontend_url') . '/' . $user->user_slug
                 ]
             ], 201);
         } catch (Throwable $e){
@@ -113,7 +120,7 @@ class AuthController extends Controller
             return response()->json(['message' => 'Incorrect password',
             'can_resend' => true,
             'email' => $user->email,
-        ], 401);
+        ], 400);
         }
 
         //Update user
@@ -185,9 +192,22 @@ class AuthController extends Controller
     // ---------- User Profile --------------------------
     public function profile(Request $request)
     {
-        return response()->json([
-            'user' => $request->user()
-        ]);
+        $user = $request->user();
+        
+        // Debug: check if user exists
+        if (!$user) {
+            return response()->json([
+                'message' => 'User not authenticated',
+            ], 401);
+        }
+    
+        if (!$user->email_verified_at) {
+            return response()->json([
+                'message' => 'Email not verified',
+            ], 403);
+        }
+    
+        return response()->json(['user' => $user]);
     }
 
     // ---------- Resend Verification --------------------------

@@ -27,6 +27,7 @@ class User extends Authenticatable
      */
     protected $fillable = [
         'name',
+        'user_slug',
         'email',
         'email_verified_at',
         'phone',
@@ -93,5 +94,27 @@ class User extends Authenticatable
         $this->save();
 
         return $rawToken; // return raw token for email
+    }
+
+    // Helper method to generate unique user_slug
+    public static function generateUniqueSlug($name)
+    {
+        $baseSlug = Str::slug($name);
+        $slug = $baseSlug;
+        $counter = 1;
+
+        // Keep trying until we find a unique slug
+        while (self::where('user_slug', $slug)->exists()) {
+            $slug = $baseSlug . '-' . $counter;
+            $counter++;
+        }
+
+        return $slug;
+    }
+
+    // Override route key name for route model binding
+    public function getRouteKeyName()
+    {
+        return 'user_slug';
     }
 }
