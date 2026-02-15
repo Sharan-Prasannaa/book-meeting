@@ -116,6 +116,7 @@ Base URL: http://localhost:8000/api
 
 **Verify Email**
 - GET /auth/verify-email/{token}
+- Resend verification mail
 
 **Logout**
 - POST /auth/logout
