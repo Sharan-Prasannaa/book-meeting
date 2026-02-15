@@ -24,7 +24,9 @@ export function AuthProvider({ children }) {
         });
         setUser(res.data.user);
       } catch (err) {
-        localStorage.removeItem("token"); // If "/auth/profile" fails, clear token
+        if (err.response?.status === 401) {
+          localStorage.removeItem("token"); // If "/auth/profile" fails, clear token
+        } 
         setUser(null);
       } finally {
         setLoading(false);
@@ -41,7 +43,7 @@ export function AuthProvider({ children }) {
       const res = await api.post("/auth/login", data);
       localStorage.setItem("token", res.data.token);
       setUser(res.data.user);
-      navigate("/profile"); // redirect after login
+      navigate("/dashboard"); // redirect after login
     } catch (error) {
       throw error; // ensures frontend catch works
     }
