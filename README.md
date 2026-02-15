@@ -1,101 +1,175 @@
-# Book Meeting
+# BookEase - Meeting Scheduling Application
 
-A mini appointment-scheduling app inspired by Calendly. **PHP (Laravel)** backend and **React** frontend.
+A web-based appointment scheduling system similar to Calendly. Built as a learning project to understand full-stack development with Laravel and React.
 
----
+## What This Project Does
 
-## What’s done so far (Step 1)
+BookEase allows hosts to create meeting types and set their availability. Guests can then visit the host's booking page and schedule meetings based on available time slots.
 
-- **Data model designed** and migrations created.
-- **Migration order fixed** so `bookings` is created before `booking_slots` (FK dependency).
-- **Double-booking** enforced in **backend validation logic** (no DB unique constraint).
-- **Auth backend in place**: Laravel Sanctum installed; signup, login, and email-verification endpoints implemented.
-- **(Optional)** DB-level unique on `(user_id, date, start_time)` can be added later for extra safety.
+**Example:** If John creates a "30 Minute Meeting" event type and sets his availability as Monday-Friday 9am-5pm, guests can visit `yoursite.com/john/30-minute-meeting` and book a time slot.
 
----
+## Technologies Used
 
-## How to install & run
+**Backend:**
+- Laravel 12.51.0 (PHP framework)
+- MySQL database
+- Laravel Sanctum for API authentication
 
-### Backend (Laravel)
+**Frontend:**
+- React ^19.2.0
+- React Router for navigation
+- Axios for API calls
+- Tailwind CSS for styling
+
+## Features
+
+**For Hosts:**
+- Create event types with custom durations
+- Set weekly availability schedule
+- Block specific dates
+- View all bookings
+- Get shareable booking links
+
+**For Guests:**
+- Browse available meeting types
+- Pick a date and time
+- Fill in contact details
+- Get booking confirmation
+```
+
+## Installation
+
+### Backend Setup
 
 ```bash
 cd backend
 composer install
 cp .env.example .env
 php artisan key:generate
+
+# Set up your database in .env file
+# DB_DATABASE=book_meeting_db
+# DB_USERNAME=root
+# DB_PASSWORD=
+
+Add proper URL's keys
+#VITE_API_URL=
+#FRONTEND_URL=
+
 php artisan migrate
 php artisan serve
 ```
 
-- **Database:** MySQL (or SQLite for local dev; set in `.env`). Create the DB first (e.g. `book_meeting_db`) in phpMyAdmin or MySQL.
-- **MySQL:** `AppServiceProvider` sets `Schema::defaultStringLength(191)` so indexed string columns stay under InnoDB’s index key length limit with utf8mb4 (avoids “key too long” on migrate).
-- More detail: [backend/README.md](backend/README.md).
+### Frontend Setup
 
-### Frontend (React)
+```bash
+cd frontend
+npm install
 
-Planned **React SPA** in `frontend/` that will:
+# Create .env file
+echo "VITE_API_URL=http://localhost:8000/api" > .env (Modify url as needed)
 
-- Implement the **admin auth flow** (signup → email verify prompt → login) against the existing Laravel API.
-- Later, add **admin dashboard** (availability/event types, bookings) and **public booking UI** (date picker, slots, booking form).
-
----
-
-## Data model (current)
-
-Plain description of tables and relationships.
-
-### Tables
-
-| Table             | Purpose |
-|-------------------|--------|
-| **users**         | Admins/hosts (set availability) and guests (book). Roles: `admin`, `host`, `guest`. Includes `email_verified`, `verification_token`, `timezone`, `buffer_minutes`. |
-| **password_resets** | Standard Laravel password reset tokens. |
-| **availabilities** | Recurring weekly schedule per host: `user_id`, `day_of_week`, `start_time`, `end_time`. Optional: `blocked_date` for date-specific blocks. |
-| **bookings**       | A confirmed booking: host `user_id`, guest name/email/phone/message, `date`, `start_time`, `end_time`, `status` (Pending/Completed/Cancelled). |
-| **booking_slots**  | Time slots (per host, per date). `user_id`, `availability_id` (nullable), `booking_id` (nullable when free). `date`, `start_time`, `end_time`, `is_booked`. Slots are generated from availabilities; when a guest books, one slot is linked to one booking. |
-
-### Relationships
-
-- **users** → availabilities (one-to-many).
-- **users** → booking_slots (one-to-many).
-- **users** → bookings (one-to-many, as host).
-- **availabilities** → booking_slots (one-to-many, optional).
-- **bookings** ← booking_slots (one-to-one: `booking_slots.booking_id` → `bookings.id`).
-
-### Double-booking protection
-
-- Handled in **backend code**: when creating a booking, check that the chosen slot exists, is for the right host/date/time, and `is_booked` is false; then update the slot and create the booking inside a **DB transaction**. Return 409 if the slot is already taken.
-- **(Enhancement)** Add a unique constraint on `booking_slots (user_id, date, start_time)` for extra safety at DB level.
-
----
-
-## Optional / enhancements (later)
-
-- **DB unique constraint** on `booking_slots (user_id, date, start_time)`.
-- **Separate “availability_blocks”** table for date-specific overrides.
-- **Email verification** flow (signup → verify → login).
-- **Admin UI**: manage availability, view/cancel bookings, buffer time, timezone.
-- **Email notification** on successful booking.
-- **Mobile-friendly** layout and polish.
-
----
-
-## Repo structure
-
-```
-book-meeting/
-├── backend/     # Laravel API
-├── frontend/     # React app (to be added)
-└── README.md     # This file
+npm run dev
 ```
 
----
+## Database Tables
 
-## AI / tools used
+- **users** - Host and guest accounts
+- **event_types** - Meeting types created by hosts
+- **availabilities** - Host's weekly schedule and blocked dates
+- **bookings** - Confirmed appointments
 
-- **Mermaid** – Used for flow diagrams (admin and user backend sequences, admin/user UI flowcharts). Keeps flows in text, versionable in the repo, and easy to update.
-- **dbdiagram** – Used for database schema design and relationship sketching before writing migrations. Helps reason about tables and constraints visually.
+## How It Works
 
----
+### For Hosts:
+1. Sign up and verify email
+2. Create event types (e.g., "30 Min Call")
+3. Set availability (e.g., Mon-Fri 9am-5pm)
+4. Share booking link with guests
 
-*Step 1 (data model & README) done; next is the application (API then frontend).*
+### For Guests:
+1. Visit host's booking link
+2. Choose an event type
+3. Select date and time
+4. Enter contact details
+5. Booking confirmed
+
+## Main Challenges I Faced
+### 1. Generating Available Time Slots
+**Problem:** Had to calculate which time slots are available based on the host's schedule and existing bookings.
+
+**Solution:** Made a function that:
+- Gets host's availability for the day
+- Breaks it into slots based on meeting duration
+- Removes already booked slots
+- Returns available times
+
+
+### 2. Making Clean URLs Like Calendly
+**Problem:** Initially used `/book/123` but wanted `/john/30-minute-meeting.
+
+**Solution:** Added a `slug` field to event types and `user_slug` to users. Changed routes to use these slugs instead of IDs. Had to refactor both frontend routes and backend API endpoints.
+
+### 3. Authentication Between Frontend and Backend
+**Problem:** React frontend and Laravel backend are separate applications. How to keep users logged in?
+
+**Solution:** Used Laravel Sanctum. On login, backend gives a token. Frontend stores it in localStorage and includes it in every API request header. Took time to understand token-based authentication vs session-based.
+
+### 4. Managing State Across Components
+**Problem:** User data needed in many components (Dashboard, Events, etc.). Was passing props everywhere.
+
+**Solution:** Used React Context API to store user data globally. Created AuthContext that any component can access. Still learning when to use Context vs when to keep state local.
+
+### 5. Form Validation
+**Problem:** Needed to validate forms on both frontend and backend. Got confused about where to put validation logic.
+
+**Solution:** Added validation in both places:
+- Frontend: Check required fields before submitting
+- Backend: Laravel validation rules for security
+
+### 6. Understanding API Design
+**Problem:** First time building a proper REST API.
+
+**Learning:** Read about REST principles. Learned:
+- Use proper HTTP methods (GET, POST, PUT, DELETE)
+- Return consistent JSON structure
+- Use correct status codes (200, 201, 404, 422, etc.)
+- Separate public and authenticated routes
+
+## What I Learned
+- Token-based API authentication with Sanctum
+- Building a React SPA with routing
+- Making API calls with Axios
+- Basic state management with Context API
+- Database transactions for data integrity
+- Email sending in Laravel
+- Environment variables and configuration
+
+## Known Issues / TODO
+
+- Time zone conversion not fully implemented
+- No email notifications for bookings yet
+- Can't edit bookings once created
+- No way for guests to cancel bookings
+- Calendar integration would be nice
+- Should add loading spinners
+- Need better error messages
+- Mobile design could be improved
+
+## Future Improvements
+
+**Short Term:**
+- Add email notifications when bookings are created
+- Let users cancel/reschedule bookings
+- Better error handling and validation messages
+- Add loading states to forms
+
+**Long Term:**
+- Google Calendar integration
+- Allow buffer time between meetings
+- Support recurring availability exceptions
+- Add booking reminders
+- Build analytics dashboard
+- Team scheduling feature
+
+## Acknowledgments
