@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\User;
 use App\Models\Booking;
 use App\Models\EventType;
 use Carbon\Carbon;
@@ -10,28 +11,47 @@ use Illuminate\Http\Request;
 
 class BookingController extends Controller
 {
-    // Funtion to fetch available slots based on event and date
-    public function availableSlots(Request $request)
+    /**
+     * Fetch available slots based on username, event slug, and date
+     * Route: GET /{username}/{slug}/available-slots?date=2026-02-20 
+     */
+    public function availableSlots(Request $request, $userSlug, $eventSlug)
     {
-        // Validate input
         $request->validate([
-            'event_type_id' => 'required|exists:event_types,id',
             'date' => 'required|date|after_or_equal:today',
         ]);
 
-        $eventTypeId = $request->event_type_id;
         $date = $request->date;
     
-        // Fetch event type with host and their availabilities
-        $eventType = EventType::with([
-            'user.availabilities', // Load host's availability rules
-            'bookings' => function($query) use ($date) {
-                $query->whereDate('start_datetime', $date)
-                      ->whereIn('status', ['scheduled', 'completed']); // Only count confirmed/pending bookings
-            }
-        ])->findOrFail($eventTypeId);
+        // Find user by name
+        $user = User::where('user_slug', $userSlug)->firstOrFail();
+        
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Host not found'
+            ], 404);
+        }
+
+        // Find event type by slug for this user
+        $eventType = EventType::where('user_id', $user->id)
+            ->where('slug', $eventSlug)
+            ->where('is_active', true)
+            ->with([
+                'bookings' => function($query) use ($date) {
+                    $query->whereDate('start_datetime', $date)
+                          ->whereIn('status', ['scheduled', 'completed']);
+                }
+            ])
+            ->first();
+
+        if (!$eventType) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Event type not found'
+            ], 404);
+        }
     
-        $host = $eventType->user;
         $bookings = $eventType->bookings;
         $slotDuration = $eventType->duration;
     
@@ -39,7 +59,7 @@ class BookingController extends Controller
         $dayOfWeek = strtolower(Carbon::parse($date)->format('l')); // 'monday', 'tuesday', ...
     
         // Check if date is blocked
-        $isDateBlocked = $host->availabilities()
+        $isDateBlocked = $user->availabilities()
             ->where('is_blocked', true)
             ->where('blocked_date', $date)
             ->exists();
@@ -52,7 +72,7 @@ class BookingController extends Controller
         }
     
         // Get availability rules for this day of week
-        $availabilities = $host->availabilities()
+        $availabilities = $user->availabilities()
             ->where('day_of_week', $dayOfWeek)
             ->where('is_active', true)
             ->where('is_blocked', false)
@@ -92,10 +112,10 @@ class BookingController extends Controller
                 });
     
                 $slots[] = [
-                    'start' => $slotStart->format('H:i'),
-                    'end' => $slotEnd->format('H:i'),
                     'start_datetime' => $slotStart->toIso8601String(),
                     'end_datetime' => $slotEnd->toIso8601String(),
+                    'start_time' => $slotStart->format('H:i'),
+                    'end_time' => $slotEnd->format('H:i'),
                     'status' => $isBooked ? 'booked' : 'available',
                 ];
     
@@ -105,7 +125,7 @@ class BookingController extends Controller
     
         // Sort slots by start time (in case multiple availability windows)
         usort($slots, function($a, $b) {
-            return strcmp($a['start'], $b['start']);
+            return strcmp($a['start_time'], $b['start_time']);
         });
     
         return response()->json([
@@ -120,23 +140,45 @@ class BookingController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    /**
+     * Create a new booking
+     * Route: POST /{username}/{slug}/book
+     */
+    public function store(Request $request, $userSlug, $eventSlug)
     {
         $request->validate([
-            'event_type_id' => 'required|exists:event_types,id',
-            'guest_name' => 'required|string',
-            'guest_email' => 'required|email',
-            'guest_phone' => 'nullable|string',
-            'start_time' => 'required',
-            'end_time' => 'required',
+            'start_datetime' => 'required|date|after_or_equal:now',
+            'end_datetime' => 'required|date|after:start_datetime',
+            'guest_name' => 'required|string|max:255',
+            'guest_email' => 'required|email|max:255',
+            'guest_phone' => 'nullable|string|max:20',
         ]);
 
-        // Fetch event type to get duration
-        $eventType = EventType::with('user')->findOrFail($request->event_type_id);
-        $host = $eventType->user;
+        // Find user by name
+        $user = User::where('user_slug', $userSlug)->firstOrFail();
+        
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Host not found'
+            ], 404);
+        }
 
-        $startDatetime = Carbon::parse($date . ' ' . $request->start_time);
-        $endDatetime = Carbon::parse($date . ' ' . $request->end_time);
+        // Find event type by slug
+        $eventType = EventType::where('user_id', $user->id)
+            ->where('slug', $eventSlug)
+            ->where('is_active', true)
+            ->first();
+
+        if (!$eventType) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Event type not found'
+            ], 404);
+        }
+
+        $startDatetime = Carbon::parse($request->start_datetime);
+        $endDatetime = Carbon::parse($request->end_datetime);
         $date = $startDatetime->format('Y-m-d'); // Extract date for availability check
 
         // Validate duration matches event type
@@ -154,7 +196,7 @@ class BookingController extends Controller
         $dayOfWeek = strtolower($startDatetime->format('l'));
 
         // Check if date is blocked
-            $isDateBlocked = $host->availabilities()
+            $isDateBlocked = $user->availabilities()
             ->where('is_blocked', true)
             ->where('blocked_date', $date)
             ->exists();
@@ -170,7 +212,7 @@ class BookingController extends Controller
         $startTime = $startDatetime->format('H:i');
         $endTime = $endDatetime->format('H:i');
 
-        $hasAvailability = $host->availabilities()
+        $hasAvailability = $user->availabilities()
             ->where('day_of_week', $dayOfWeek)
             ->where('is_active', true)
             ->where('is_blocked', false)
@@ -228,7 +270,8 @@ class BookingController extends Controller
         ]);
     }
 
-    //Get all bookings for authenticated user (host)
+    // ------------------- PROTECTED METHODS (Host Only) -------------------
+    // Get all bookings for authenticated user (host)
     public function index()
     {
         if (!auth()->id()) {
